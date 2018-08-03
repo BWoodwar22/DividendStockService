@@ -113,7 +113,7 @@ public class DividendStockController {
      */
     private StockData createStockData(String symbol) {
     	StockData stockData = new StockData();
-    	WebClient webClient = new WebClient();
+    	WebClient webClient = createWebClient();
     	
     	try {
 	    	if (symbol != null && symbol.trim() != "") {
@@ -162,7 +162,7 @@ public class DividendStockController {
      */
     private DividendData createDividendData(String symbol) {
     	DividendData dividendData = new DividendData();
-    	WebClient webClient = new WebClient();
+    	WebClient webClient = createWebClient();
     	DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yy");
     	
     	try {
@@ -230,7 +230,7 @@ public class DividendStockController {
      */
     private DividendHistory createDividendHistory(String symbol) {
     	DividendHistory dividendHistory = new DividendHistory();
-    	WebClient webClient = new WebClient();
+    	WebClient webClient = createWebClient();
     	DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy");
     	
     	try {
@@ -272,7 +272,7 @@ public class DividendStockController {
      */
     private FundamentalData createFundamentalData(String symbol) {
     	FundamentalData fundamentalData = new FundamentalData();
-    	WebClient webClient = new WebClient();
+    	WebClient webClient = createWebClient();
     	
     	try {
 	    	if (symbol != null && symbol.trim() != "") {
@@ -310,5 +310,13 @@ public class DividendStockController {
 		}
     	
     	return fundamentalData;
+    }
+    
+    private WebClient createWebClient() {
+    	WebClient webClient = new WebClient();
+    	webClient.getOptions().setCssEnabled(false);
+    	webClient.getOptions().setJavaScriptEnabled(false);
+    	
+    	return webClient;
     }
 }
