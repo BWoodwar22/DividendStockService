@@ -1,4 +1,4 @@
-package service;
+package service.models;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -14,18 +14,7 @@ public class DividendHistory {
 	}
 	
 	public List<DividendPayment> getDividends() {
-		dividends.sort(new Comparator<DividendPayment>() {
-			@Override
-			public int compare(DividendPayment o1, DividendPayment o2) {
-				if(o2.getDate().isAfter(o1.getDate())) {
-					return 1; 
-				}
-				else if(o2.getDate().isBefore(o1.getDate())) {
-					return -1; 
-				}
-				else return 0;
-			}
-		});	
+		dividends.sort((d1, d2) -> d1.getDate().compareTo(d2.getDate()));
 		
 		return dividends;
 	}
@@ -35,7 +24,7 @@ public class DividendHistory {
 	}
 
 
-	class DividendPayment {
+	public class DividendPayment {
 		private LocalDate date;
 		private BigDecimal dividend;
 		

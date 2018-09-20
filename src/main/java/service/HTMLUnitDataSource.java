@@ -4,16 +4,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.CacheConfig;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.stereotype.Service;
 
+import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.HtmlElement;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
@@ -21,108 +17,44 @@ import com.gargoylesoftware.htmlunit.html.HtmlSpan;
 import com.gargoylesoftware.htmlunit.html.HtmlTable;
 import com.gargoylesoftware.htmlunit.html.HtmlTableRow;
 
+import service.models.DividendData;
+import service.models.DividendHistory;
+import service.models.FundamentalData;
+import service.models.StockData;
+
 /**
- * Controller class for all the dividend stock service calls.
+ * A source for the dividend data returned by the service.  In this case, from using HTMLUnit to read Dividata.com.
  * 
- * Data is pulled via HTMLUnit from Dividata.com pages. Results will be cached for the day to reduce slow HTMLUnit requests.
+ * Note: Dividata only has entries for dividend stocks, not all stocks.  Non dividend stocks will return a 404.
+ * 
  * Originally the plan was to pull data from Tradier's service, but they do not provide dividend data under free subscription.
  * I cannot find any other free service providing dividend history, hence the Dividata page parsing.
  * Unfortunately, Dividata does not give IDs to their form elements, so the parsing is rather fragile.
  */
-
-@RestController
-@CacheConfig(cacheNames={"stockData", "fundamentalData", "dividendData", "dividendHistory"})
-public class DividendStockController {
-
-	private final String DIVIDATA_URL = "https://dividata.com/stock/";
-    private final AtomicLong counter = new AtomicLong();
-    private static final Logger log = LoggerFactory.getLogger(DividendStockController.class);
-    
-    /**
-     * Returns general information about the stock with the given ticker symbol.
-     * 
-     * @param symbol
-     */
-    @Cacheable("stockData")
-    @RequestMapping("/stocks/{symbol}")
-    public StockData getStockOverview(@PathVariable("symbol") String symbol) {
-    	log.debug("Getting uncached stock data for:" + symbol);
-    	
-    	counter.incrementAndGet();
-
-        return createStockData(symbol.toUpperCase());
-    }
-    
-    /**
-     * Returns dividend information about the stock with the given ticker symbol.
-     * 
-     * @param symbol
-     */
-    @Cacheable("dividendData")
-    @RequestMapping("/stocks/{symbol}/dividends/data")
-    public DividendData getDividendData(@PathVariable("symbol") String symbol) {
-    	log.debug("Getting uncached dividend data for:" + symbol);
-    	
-    	counter.incrementAndGet();
-    	
-        return createDividendData(symbol.toUpperCase());
-    }
-    
-    /**
-     * Returns the history of dividend payments for the stock with the given ticker symbol.
-     * 
-     * @param symbol
-     */
-    @Cacheable("dividendHistory")
-    @RequestMapping("/stocks/{symbol}/dividends/history")
-    public DividendHistory getDividendHistory(@PathVariable("symbol") String symbol) {
-    	log.debug("Getting uncached dividend history for:" + symbol);
-    	
-    	counter.incrementAndGet();
-    	
-        return createDividendHistory(symbol.toUpperCase());
-    }
-    
-    /**
-     * Returns fundamentals about the stock with the given ticker symbol.
-     * 
-     * @param symbol
-     */
-    @Cacheable("fundamentalData")
-    @RequestMapping("/stocks/{symbol}/fundamentals")
-    public FundamentalData getFundamentals(@PathVariable("symbol") String symbol) {
-    	log.debug("Getting uncached fundamental data for:" + symbol);
-    	
-    	counter.incrementAndGet();
-    	
-        return createFundamentalData(symbol.toUpperCase());
-    }
-    
-    /**
-     * Returns the uncached use count for debugging.
-     */
-    @RequestMapping("/uncachedUseCount")
-    public long getUncachedUseCount() {
-        return counter.get();
-    }
-    
+@Service
+public class HTMLUnitDataSource {
+	private static final String DIVIDATA_URL = "https://dividata.com/stock/";
+	private static final DateTimeFormatter MDYFormatter = DateTimeFormatter.ofPattern("MM/dd/yy");
+	private static final DateTimeFormatter MDYCommaFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy");
+	private static final Logger log = LoggerFactory.getLogger(HTMLUnitDataSource.class);
+	
     /**
      * Uses HTMLUnit to pull data from Dividata.com
      * @param symbol
      * @return
      */
-    private StockData createStockData(String symbol) {
-    	StockData stockData = new StockData();
+    public StockData createStockData(String symbol) {
     	WebClient webClient = createWebClient();
     	
     	try {
 	    	if (symbol != null && symbol.trim() != "") {
-	    		stockData.setSymbol(symbol);
-
 	    		HtmlPage page = webClient.getPage(DIVIDATA_URL.concat(symbol));
 	    		
 	    		if (page != null)
 	    		{
+	    			StockData stockData = new StockData();
+	    			stockData.setSymbol(symbol);
+	    			
 	    			HtmlSpan span = page.getFirstByXPath("//li[text()='Sector']/span");
 		    		if (span != null) {
 			    		stockData.setSector(span.getTextContent());
@@ -142,8 +74,13 @@ public class DividendStockController {
 		    		if (h2 != null) {
 		    			stockData.setName(h2.getTextContent());
 		    		}
+		    		
+		    		return stockData;
 	    		}
 	    	}
+    	}
+    	catch (FailingHttpStatusCodeException e ) {
+    		return null;
     	}
     	catch (Exception e) {
     		log.debug("exception:"+e.toString());
@@ -152,7 +89,7 @@ public class DividendStockController {
     		webClient.close();
     	}
     	
-    	return stockData;
+    	return null;
     }
     
     /**
@@ -160,19 +97,17 @@ public class DividendStockController {
      * @param symbol
      * @return
      */
-    private DividendData createDividendData(String symbol) {
-    	DividendData dividendData = new DividendData();
+    public DividendData createDividendData(String symbol) {
     	WebClient webClient = createWebClient();
-    	DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yy");
     	
     	try {
 	    	if (symbol != null && symbol.trim() != "") {
-	    		dividendData = new DividendData();
-	    		
 	    		HtmlPage page = webClient.getPage(DIVIDATA_URL.concat(symbol));
 	    		
 	    		if (page != null)
 	    		{
+	    			DividendData dividendData = new DividendData();
+	    			
 	    			HtmlSpan span = page.getFirstByXPath("//li/abbr[text()='52 Week Dividend']/following-sibling::span");
 		    		if (span != null) {
 		    			BigDecimal dividend = new BigDecimal(span.getTextContent().replace("$", ""));
@@ -196,12 +131,12 @@ public class DividendStockController {
 		    		
 		    		span = page.getFirstByXPath("//li/abbr[text()='Last Ex-Dividend Date']/following-sibling::span");
 		    		if (span != null) {
-		    			dividendData.setLastExDividendDate((LocalDate.parse(span.getTextContent(), formatter)));
+		    			dividendData.setLastExDividendDate((LocalDate.parse(span.getTextContent(), MDYFormatter)));
 		    		}
 		    		
 		    		span = page.getFirstByXPath("//li/abbr[text()='Pay Date']/following-sibling::span");
 		    		if (span != null) {
-		    			dividendData.setLastPayDate((LocalDate.parse(span.getTextContent(), formatter)));
+		    			dividendData.setLastPayDate((LocalDate.parse(span.getTextContent(), MDYFormatter)));
 		    		}
 		    		
 		    		span = page.getFirstByXPath("//li/abbr[text()='Years Paying']/following-sibling::span");
@@ -210,8 +145,13 @@ public class DividendStockController {
 		    				dividendData.setYearsPaying(new Integer(span.getTextContent()));
 		    			}
 		    		}
+		    		
+		    		return dividendData;
 	    		}
 	    	}
+    	}
+    	catch (FailingHttpStatusCodeException e ) {
+    		return null;
     	}
     	catch (Exception e) {
     		log.debug("exception:"+e.toString());
@@ -220,7 +160,7 @@ public class DividendStockController {
     		webClient.close();
     	}
     	
-    	return dividendData;
+    	return null;
     }
     
     /**
@@ -228,10 +168,8 @@ public class DividendStockController {
      * @param symbol
      * @return
      */
-    private DividendHistory createDividendHistory(String symbol) {
-    	DividendHistory dividendHistory = new DividendHistory();
+    public DividendHistory createDividendHistory(String symbol) {
     	WebClient webClient = createWebClient();
-    	DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy");
     	
     	try {
 	    	if (symbol != null && symbol.trim() != "") {
@@ -239,22 +177,29 @@ public class DividendStockController {
 	    		
 	    		if (page != null)
 	    		{
+	    			DividendHistory dividendHistory = new DividendHistory();
+	    			
 	    			HtmlTable table = page.getFirstByXPath("//table");
 	    			boolean header = true;
 	    			
 	    			for (HtmlTableRow row : table.getRows()) {
 	    				if (!header) {
 	    					dividendHistory.addDividendPayment(
-	    							LocalDate.parse(row.getCell(0).getTextContent(), formatter), 
+	    							LocalDate.parse(row.getCell(0).getTextContent(), MDYCommaFormatter), 
 	    							new BigDecimal(row.getCell(1).getTextContent().replace("$", "")));
 	    				}
 	    				else {
 	    					header = false;
 	    				}
 	    			}
+	    			
+	    			return dividendHistory;
 	    		}
 	    	}
 		}
+    	catch (FailingHttpStatusCodeException e ) {
+    		return null;
+    	}
 		catch (Exception e) {
 			log.debug("exception:"+e.toString());
 		}
@@ -262,7 +207,7 @@ public class DividendStockController {
 			webClient.close();
 		}
     	
-    	return dividendHistory;
+    	return null;
     }
     
     /**
@@ -270,8 +215,7 @@ public class DividendStockController {
      * @param symbol
      * @return
      */
-    private FundamentalData createFundamentalData(String symbol) {
-    	FundamentalData fundamentalData = new FundamentalData();
+    public FundamentalData createFundamentalData(String symbol) {
     	WebClient webClient = createWebClient();
     	
     	try {
@@ -280,6 +224,8 @@ public class DividendStockController {
 	    		
 	    		if (page != null)
 	    		{
+	    			FundamentalData fundamentalData = new FundamentalData();
+	    			
 	    			HtmlSpan span = page.getFirstByXPath("//li[text()=' Last Close']/span");
 		    		if (span != null) {
 			    		fundamentalData.setLastClose(new BigDecimal(span.getTextContent().replace("$", "")));
@@ -299,9 +245,14 @@ public class DividendStockController {
 		    		if (span != null) {
 			    		fundamentalData.setVolume(new Double(span.getTextContent().replaceAll(",", "")));
 		    		}
+		    		
+		    		return fundamentalData;
 	    		}
 	    	}
 		}
+    	catch (FailingHttpStatusCodeException e ) {
+    		return null;
+    	}
 		catch (Exception e) {
 			log.debug("exception:"+e.toString());
 		}
@@ -309,10 +260,14 @@ public class DividendStockController {
 			webClient.close();
 		}
     	
-    	return fundamentalData;
+    	return null;
     }
     
-    private WebClient createWebClient() {
+    /**
+     * Create an HTMLUnit WebClient with scripting disabled to increase performance
+     * @return
+     */
+    public WebClient createWebClient() {
     	WebClient webClient = new WebClient();
     	webClient.getOptions().setCssEnabled(false);
     	webClient.getOptions().setJavaScriptEnabled(false);

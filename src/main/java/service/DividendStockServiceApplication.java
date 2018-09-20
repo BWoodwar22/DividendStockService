@@ -7,6 +7,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+/**
+ * 
+ * Main class for the dividend stock service
+ *
+ */
 @SpringBootApplication
 public class DividendStockServiceApplication {
 	private static final Logger log = LoggerFactory.getLogger(DividendStockServiceApplication.class);
@@ -16,6 +21,6 @@ public class DividendStockServiceApplication {
 		System.setProperty("org.apache.commons.logging.Log", "org.apache.commons.logging.impl.NoOpLog");
 		
 		SpringApplication.run(DividendStockServiceApplication.class, args);
-		log.debug("Service started");
+		log.debug("Service started...");
 	}
 }

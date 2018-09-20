@@ -14,5 +14,3 @@ Notes:
 -This project is intended as a simple demo work of a Spring Boot REST web service, along with use of caching and HTMLUnit.
 
 -The fact that data comes from HTMLUnit reading the source webpage means that uncached requests are fairly slow on first call, especially when only using AWS's free tier.  Results are cached for each day (since the data is daily granularity) to greatly speed up future requests.
-
-Todo: Add additional fields returned for each endpoint, JUnit tests, robustness, and cleanup.

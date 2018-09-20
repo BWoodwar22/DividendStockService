@@ -1,4 +1,4 @@
-package service;
+package service.models;
 
 public class StockData {
 	private String name;

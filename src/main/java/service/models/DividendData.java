@@ -1,4 +1,4 @@
-package service;
+package service.models;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
