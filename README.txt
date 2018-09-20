@@ -1,7 +1,8 @@
 This project is a REST service that supplies data about the dividend stock with the provided ticker symbol.  Non dividend stocks will not be returned.
+
 I was unable to find any previously existing free web service that supplies full dividend history, this project fills that gap.  However, without an official exchange connection, my only free source for the data was to scrape values from an existing web page (dividata.com), and this was done via HTMLUnit.  Additional endpoints also provide relevant data to be used with the dividend history.
 
-The available service endpoints are:
+The available GET service endpoints are:
 /stocks/{symbol}                    --Basic information about the stock
 /stocks/{symbol}/dividends/data     --Information about the stock's dividend
 /stocks/{symbol}/dividends/history  --A list of the entire dividend payout history for the stock
